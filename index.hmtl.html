@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GanttMaster: Desafio de Cronogramas</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              400: '#38bdf8',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+              900: '#164e63',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 6px;
+      border: 2px solid #090d16;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* Gantt Grid pattern background */
+    .gantt-grid-bg {
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    }
+
+    /* Custom Selection */
+    .no-select {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Subtle bar glow */
+    .gantt-bar-glow {
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white pb-20">
+
+  <!-- Canvas de Confetes / Balões para Vitória de 100% -->
+  <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+  <!-- CABEÇALHO PRINCIPAL DA APLICAÇÃO -->
+  <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30 shadow-md">
+    <div class="max-w-[1700px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      
+      <!-- Marca & Logo -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="goToGame(0)">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-chart-gantt text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
+            GanttMaster <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">PRO</span>
+          </h1>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Laboratório de Cronogramas e Sequenciamento de Projetos</p>
+        </div>
+      </div>
+
+      <!-- Navegação Superior dos 7 Exercícios (Desktop) -->
+      <div id="header-progress-bar" class="hidden lg:flex items-center space-x-1.5 bg-slate-950/80 px-3 py-1.5 rounded-2xl border border-slate-800/80">
+        <!-- Renderizado dinamicamente via JS -->
+      </div>
+
+      <!-- Botões Globais de Ação -->
+      <div class="flex items-center space-x-2">
+        <button onclick="toggleSound()" id="sound-btn" title="Alternar Som" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700/60">
+          <i class="fa-solid fa-volume-high text-sm"></i>
+        </button>
+        <button onclick="openHelpModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700/60 flex items-center gap-2">
+          <i class="fa-solid fa-graduation-cap text-cyan-400 text-sm"></i> <span class="hidden sm:inline">Guia Didático</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navegação Mobile / Tablet por Ícones de Passos -->
+    <div id="header-progress-bar-mobile" class="lg:hidden flex border-t border-slate-800 bg-slate-950 px-3 py-2 gap-2 overflow-x-auto">
+      <!-- Renderizado dinamicamente via JS -->
+    </div>
+  </header>
+
+  <!-- CONTAINER DO CONTEÚDO PRINCIPAL (LAYOUT EXPANDIDO) -->
+  <div id="main-app-container" class="flex-1 flex flex-col max-w-[1700px] w-full mx-auto px-2 sm:px-6 py-4">
+    <!-- Conteúdo alterado via JS (renderScreen) -->
+  </div>
+
+  <!-- RODAPÉ FIXO DE NAVEGAÇÃO E STATUS -->
+  <footer id="game-status-footer" class="fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 z-40 py-2.5 px-4 shadow-2xl">
+    <div class="max-w-[1700px] mx-auto flex items-center justify-between gap-4">
+      
+      <!-- Esquerda: Número do Jogo e Nome do Projeto -->
+      <div class="flex items-center gap-3">
+        <span id="footer-game-number" class="px-3 py-1 rounded-xl bg-slate-800 text-cyan-400 text-xs font-bold font-mono border border-slate-700">
+          Jogo 1 de 7
+        </span>
+        <span id="footer-game-title" class="hidden sm:inline text-xs font-semibold text-slate-200 truncate max-w-sm">
+          Instalação de Sistema Solar Fotovoltaico
+        </span>
+      </div>
+
+      <!-- Centro: Status Pedagógico -->
+      <div class="flex items-center">
+        <span id="footer-status-badge" class="px-4 py-1 rounded-full text-xs font-bold flex items-center gap-2 bg-amber-500/10 text-amber-400 border border-amber-500/30">
+          <i class="fa-solid fa-hourglass-half"></i> Status: Não Verificado
+        </span>
+      </div>
+
+      <!-- Direita: Navegação de Telas -->
+      <div class="flex items-center gap-2">
+        <button id="footer-prev-btn" onclick="prevGame()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition border border-slate-700 flex items-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none">
+          <i class="fa-solid fa-chevron-left"></i> <span class="hidden sm:inline">Anterior</span>
+        </button>
+        <button id="footer-next-btn" onclick="nextGame()" class="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition shadow-md shadow-cyan-500/20 flex items-center gap-1.5">
+          <span class="hidden sm:inline">Próximo Exercício</span> <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- MODAL DE VERIFICAÇÃO PEDAGÓGICA (Sem Spoiler) -->
+  <div id="feedback-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl relative overflow-hidden transform transition-all">
+      
+      <div id="modal-header-icon" class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl mb-4 border border-cyan-500/30">
+        <i class="fa-solid fa-clipboard-check"></i>
+      </div>
+
+      <h3 id="modal-title" class="text-xl font-extrabold text-white mb-1">Análise do Cronograma</h3>
+      <p id="modal-subtitle" class="text-xs text-slate-400 mb-4">Veja o feedback detalhado para ajustar suas dependências:</p>
+
+      <!-- Lista de Observações Pedagógicas -->
+      <div id="feedback-list" class="space-y-2.5 max-h-72 overflow-y-auto pr-1 mb-6">
+        <!-- Inseridos via JS -->
+      </div>
+
+      <!-- Ações do Modal -->
+      <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+          Revisar e Corrigir
+        </button>
+        <button id="modal-next-btn" onclick="nextGameFromModal()" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition flex items-center gap-2 hidden">
+          Avançar para Próximo Jogo <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL DE GUIA DIDÁTICO / CONCEITOS -->
+  <div id="help-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative">
+      <button onclick="closeHelpModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+
+      <div class="flex items-center gap-3.5 mb-5">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl border border-cyan-500/30">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Guia de Cronograma e Vínculos</h3>
+          <p class="text-xs text-slate-400">Como analisar e sequenciar projetos com precisão técnica</p>
+        </div>
+      </div>
+
+      <div class="space-y-3.5 text-xs text-slate-300 leading-relaxed mb-6 max-h-96 overflow-y-auto pr-2">
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <h4 class="font-bold text-cyan-400 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-bullseye"></i> Objetivo dos Exercícios
+          </h4>
+          <p>Posicione cada tarefa na linha do tempo garantindo que ela respeite as antecedências obrigatórias e ocorra no menor tempo possível para evitar atrasos no projeto (Caminho Crítico).</p>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <h4 class="font-bold text-cyan-400 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-link"></i> Tipos de Dependência entre Tarefas
+          </h4>
+          <ul class="list-disc pl-4 space-y-1.5 text-slate-300">
+            <li><strong class="text-emerald-400">TI (Término para Início):</strong> A tarefa sucessora só pode começar <u>após</u> o término total da tarefa antecessora (ex: pintar só após rebocar).</li>
+            <li><strong class="text-purple-400">II (Início para Início):</strong> A tarefa sucessora pode começar no <u>mesmo dia</u> em que a antecessora inicia (ex: redação de texto simultânea ao design).</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <h4 class="font-bold text-cyan-400 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-gem"></i> Marcos de Projeto (Milestones)
+          </h4>
+          <p>Tarefas com duração igual a <strong>0 dias</strong> representam momentos-chave ou entregas (Marcos). No gráfico são simbolizadas por um losango <span class="text-amber-400 font-bold">◆</span>.</p>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+          <h4 class="font-bold text-cyan-400 mb-1 flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved"></i> Verificação Educativa
+          </h4>
+          <p>Ao clicar em <strong>Verificar Cronograma</strong>, o sistema faz a auditoria lógica. Se houver falhas, você receberá dicas investigativas sem revelação direta de spoilers para estimular o raciocínio!</p>
+        </div>
+      </div>
+
+      <button onclick="closeHelpModal()" class="w-full py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs transition shadow-lg shadow-cyan-500/20">
+        Entendi! Ir para os Cronogramas
+      </button>
+    </div>
+  </div>
+
+  <!-- SCRIPT PRINCIPAL E LÓGICA DO JOGO -->
+  <script>
+    // ==========================================
+    // DATASET DOS 7 EXERCÍCIOS COMPLETOS
+    // ==========================================
+    const GAMES_DATA = [
+      {
+        id: 1,
+        badge: "Jogo 1 de 7",
+        category: "Energia Solar",
+        title: "Instalação de Sistema Solar Fotovoltaico",
+        description: "Sequencie o projeto solar residencial ajustando a cadeia de suprimentos e licenças.",
+        maxDays: 25,
+        tasks: [
+          { id: 1, name: "Visita Técnica e Dimensionamento Energético", duration: 2, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Elaboração do Projeto de Engenharia e Parecer", duration: 4, type: "TI", pre: [1], correctStart: 3 },
+          { id: 3, name: "Preparação e Reforço Estrutural do Telhado", duration: 3, type: "TI", pre: [2], correctStart: 7 },
+          { id: 4, name: "Instalação dos Módulos, Inversor e Cabeamento", duration: 3, type: "TI", pre: [3], correctStart: 10 },
+          { id: 5, name: "Homologação e Vistoria na Concessionária", duration: 10, type: "TI", pre: [4], correctStart: 13 },
+          { id: 6, name: "Entrega Técnica e Ativação do Sistema", duration: 0, type: "TI", pre: [5], correctStart: 23 }
+        ]
+      },
+      {
+        id: 2,
+        badge: "Jogo 2 de 7",
+        category: "Tecnologia da Informação",
+        title: "Desenvolvimento de Plataforma Web Fullstack",
+        description: "Atenção especial às tarefas paralelas de UI/UX Design e Backend após a definição de requisitos!",
+        maxDays: 20,
+        tasks: [
+          { id: 1, name: "Levantamento de Requisitos e Arquitetura", duration: 3, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Design de Interfaces e Protótipo (UI/UX)", duration: 4, type: "TI", pre: [1], correctStart: 4 },
+          { id: 3, name: "Desenvolvimento da API Backend e Banco", duration: 6, type: "TI", pre: [1], correctStart: 4 },
+          { id: 4, name: "Integração do Frontend com Serviços", duration: 5, type: "TI", pre: [2, 3], correctStart: 10 },
+          { id: 5, name: "Testes Automatizados e Qualidade (QA)", duration: 3, type: "TI", pre: [4], correctStart: 15 },
+          { id: 6, name: "Implantação em Produção (Go-Live)", duration: 1, type: "TI", pre: [5], correctStart: 18 }
+        ]
+      },
+      {
+        id: 3,
+        badge: "Jogo 3 de 7",
+        category: "Gestão de Eventos",
+        title: "Organização de Evento Corporativo Internacional",
+        description: "Sincronize a Divulgação Comercial em paralelo (Início-Início) com a Contratação do Local!",
+        maxDays: 15,
+        tasks: [
+          { id: 1, name: "Planejamento Estratégico e Orçamento", duration: 2, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Contratação do Local e Cenografia", duration: 3, type: "TI", pre: [1], correctStart: 3 },
+          { id: 3, name: "Divulgação e Marketing de Vendas", duration: 8, type: "II", pre: [2], correctStart: 3 },
+          { id: 4, name: "Credenciamento, Kit e Logística VIP", duration: 4, type: "TI", pre: [2], correctStart: 6 },
+          { id: 5, name: "Execução e Abertura do Evento", duration: 2, type: "TI", pre: [4], correctStart: 10 }
+        ]
+      },
+      {
+        id: 4,
+        badge: "Jogo 4 de 7",
+        category: "Construção Civil",
+        title: "Reforma Residencial Integrada e Acabamento",
+        description: "Assentamento de revestimentos exige liberação simultânea da hidráulica E do contrapiso!",
+        maxDays: 22,
+        tasks: [
+          { id: 1, name: "Demolição e Limpeza de Entulho", duration: 2, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Instalações Hidráulicas e Elétricas", duration: 4, type: "TI", pre: [1], correctStart: 3 },
+          { id: 3, name: "Execução do Contrapiso e Impermeabilização", duration: 3, type: "TI", pre: [1], correctStart: 3 },
+          { id: 4, name: "Assentamento de Revestimentos Cerâmicos", duration: 5, type: "TI", pre: [2, 3], correctStart: 7 },
+          { id: 5, name: "Montagem de Marcenaria sob Medida", duration: 4, type: "TI", pre: [4], correctStart: 12 },
+          { id: 6, name: "Pintura Final e Instalação de Luminárias", duration: 3, type: "TI", pre: [5], correctStart: 16 },
+          { id: 7, name: "Vistoria Técnica e Entrega das Chaves", duration: 0, type: "TI", pre: [6], correctStart: 19 }
+        ]
+      },
+      {
+        id: 5,
+        badge: "Jogo 5 de 7",
+        category: "Marketing Digital",
+        title: "Campanha de Lançamento de Novo Produto",
+        description: "A Redação de Conteúdo e Copywriting inicia simultaneamente (II) à Identidade Visual.",
+        maxDays: 18,
+        tasks: [
+          { id: 1, name: "Pesquisa de Mercado e Definição de Personas", duration: 3, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Criação da Identidade Visual e Key Visual", duration: 4, type: "TI", pre: [1], correctStart: 4 },
+          { id: 3, name: "Redação de Conteúdo e Copywriting de Vendas", duration: 4, type: "II", pre: [2], correctStart: 4 },
+          { id: 4, name: "Produção e Edição de Vídeos Promocionais", duration: 5, type: "TI", pre: [2], correctStart: 8 },
+          { id: 5, name: "Configuração de Campanhas e Tráfego Pago", duration: 3, type: "TI", pre: [3, 4], correctStart: 13 },
+          { id: 6, name: "Lançamento Oficial e Abertura do Carrinho", duration: 0, type: "TI", pre: [5], correctStart: 16 }
+        ]
+      },
+      {
+        id: 6,
+        badge: "Jogo 6 de 7",
+        category: "Indústria Automotiva",
+        title: "Desenvolvimento de Protótipo de Veículo Elétrico",
+        description: "Gerencie o fluxo crítico integrando powertrain elétrico, chassis e desenvolvimento de firmware.",
+        maxDays: 25,
+        tasks: [
+          { id: 1, name: "Design Conceitual do Chassis e Estrutura", duration: 4, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Usinagem e Soldagem do Chassis Tubular", duration: 5, type: "TI", pre: [1], correctStart: 5 },
+          { id: 3, name: "Montagem do Pack de Baterias e Powertrain", duration: 6, type: "TI", pre: [1], correctStart: 5 },
+          { id: 4, name: "Desenvolvimento do Firmware de Controle ECU", duration: 7, type: "TI", pre: [1], correctStart: 5 },
+          { id: 5, name: "Acoplamento Mecânico, Motor e Bateria", duration: 4, type: "TI", pre: [2, 3], correctStart: 11 },
+          { id: 6, name: "Integração Eletrônica e Sensores CAN", duration: 3, type: "TI", pre: [4, 5], correctStart: 15 },
+          { id: 7, name: "Testes Dinâmicos em Pista e Telemetria", duration: 4, type: "TI", pre: [6], correctStart: 18 },
+          { id: 8, name: "Certificação Final de Segurança Veicular", duration: 0, type: "TI", pre: [7], correctStart: 22 }
+        ]
+      },
+      {
+        id: 7,
+        badge: "Jogo 7 de 7",
+        category: "Infraestrutura Urbana",
+        title: "Construção de Ponte Rodoviária Estaiada",
+        description: "Fabrique as vigas pré-moldadas paralelamente à fundação (II) e monitore o marco de içamento.",
+        maxDays: 30,
+        tasks: [
+          { id: 1, name: "Estudo Geotécnico e Sondagem de Solo", duration: 4, type: "TI", pre: [], correctStart: 1 },
+          { id: 2, name: "Escavação e Estacas Profundas de Fundação", duration: 6, type: "TI", pre: [1], correctStart: 5 },
+          { id: 3, name: "Concretagem dos Pilares e Blocos de Apoio", duration: 5, type: "TI", pre: [2], correctStart: 11 },
+          { id: 4, name: "Fabricação Industrial de Vigas Pré-moldadas", duration: 8, type: "II", pre: [2], correctStart: 5 },
+          { id: 5, name: "Marco: Vigas Pré-moldadas Concluídas", duration: 0, type: "TI", pre: [4], correctStart: 13 },
+          { id: 6, name: "Içamento e Montagem do Tabuleiro Principal", duration: 5, type: "TI", pre: [3, 5], correctStart: 16 },
+          { id: 7, name: "Pavimentação Asfáltica, Guard-rails e Sinalização", duration: 4, type: "TI", pre: [6], correctStart: 21 },
+          { id: 8, name: "Teste de Carga Dinâmico e Inauguração", duration: 0, type: "TI", pre: [7], correctStart: 25 }
+        ]
+      }
+    ];
+
+    // ==========================================
+    // PARÂMETROS E ESTADO GLOBAL
+    // ==========================================
+    let currentScreen = 0; // 0..6 (Jogos 1 a 7), 7 = Dashboard Final
+    let soundEnabled = true;
+    let isExpandedGantt = false; // Alterna modo expandido de tela cheia do Gantt
+
+    // Configurações do Gráfico Amplo
+    let cellWidth = 52; // Largura do dia (Ajustável via Zoom: 34px a 84px)
+    const LABEL_WIDTH = 340; // Largura ampliada da coluna de nomes (evita cortes)
+    const ROW_HEIGHT = 48; // Altura confortável da linha (h-12)
+    const HEADER_HEIGHT = 42; // Altura do cabeçalho de dias
+
+    // Estado do desempenho do aluno
+    let studentState = GAMES_DATA.map(game => {
+      const userStarts = {};
+      game.tasks.forEach((t, idx) => {
+        if (idx === 0) userStarts[t.id] = 1;
+        else userStarts[t.id] = Math.min(game.maxDays - (t.duration > 0 ? t.duration - 1 : 0), 1 + (idx * 2));
+      });
+
+      return {
+        gameId: game.id,
+        verified: false,
+        status: 'pending', // 'pending' | 'correct' | 'incorrect'
+        attempts: 0,
+        userStarts: userStarts,
+        taskStatuses: {} // ID -> 'neutral'|'correct'|'error'
+      };
+    });
+
+    // Estado de Drag & Drop
+    let isDragging = false;
+    let dragTaskId = null;
+    let dragStartX = 0;
+    let dragStartDay = 1;
+
+    // ==========================================
+    // INICIALIZAÇÃO DA APLICAÇÃO
+    // ==========================================
+    window.onload = () => {
+      renderScreen();
+      setupGlobalEvents();
+    };
+
+    function setupGlobalEvents() {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+      window.addEventListener('touchmove', handleDragMove, { passive: false });
+      window.addEventListener('touchend', handleDragEnd);
+      window.addEventListener('resize', () => {
+        if (currentScreen < 7) drawDependencyLines();
+      });
+    }
+
+    // ==========================================
+    // CONTROLES DE ZOOM E NAVEGAÇÃO
+    // ==========================================
+    function zoomIn() {
+      cellWidth = Math.min(84, cellWidth + 6);
+      refreshGanttView();
+    }
+
+    function zoomOut() {
+      cellWidth = Math.max(34, cellWidth - 6);
+      refreshGanttView();
+    }
+
+    function fitZoom() {
+      const container = document.getElementById('gantt-scroll-container');
+      if (container && currentScreen < 7) {
+        const game = GAMES_DATA[currentScreen];
+        const availableWidth = container.clientWidth - LABEL_WIDTH - 20;
+        if (availableWidth > 200) {
+          const calcWidth = Math.floor(availableWidth / game.maxDays);
+          cellWidth = Math.max(34, Math.min(84, calcWidth));
+          refreshGanttView();
+        }
+      }
+    }
+
+    function toggleExpandLayout() {
+      isExpandedGantt = !isExpandedGantt;
+      renderScreen();
+    }
+
+    function refreshGanttView() {
+      renderGantt();
+      setTimeout(() => drawDependencyLines(), 40);
+    }
+
+    function goToGame(index) {
+      if (index >= 0 && index <= 7) {
+        currentScreen = index;
+        renderScreen();
+        playSound('click');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function prevGame() {
+      if (currentScreen > 0) goToGame(currentScreen - 1);
+    }
+
+    function nextGame() {
+      if (currentScreen < 6) goToGame(currentScreen + 1);
+      else if (currentScreen === 6) goToGame(7);
+    }
+
+    // ==========================================
+    // RENDERIZADOR CENTRAL
+    // ==========================================
+    function renderScreen() {
+      renderHeaderProgress();
+      const mainContainer = document.getElementById('main-app-container');
+
+      if (currentScreen === 7) {
+        // TELA FINAL DE RESULTADOS
+        document.getElementById('game-status-footer').classList.add('hidden');
+        mainContainer.innerHTML = renderFinalSummaryHTML();
+        evaluateFinalConfetti();
+      } else {
+        // TELA DO EXERCÍCIO
+        document.getElementById('game-status-footer').classList.remove('hidden');
+        mainContainer.innerHTML = renderGamePageHTML();
+        
+        renderTable();
+        renderGantt();
+        setTimeout(() => drawDependencyLines(), 60);
+        updateFooterStatus();
+      }
+    }
+
+    function renderHeaderProgress() {
+      const headerBar = document.getElementById('header-progress-bar');
+      const headerBarMob = document.getElementById('header-progress-bar-mobile');
+      
+      let html = '';
+      let htmlMob = '';
+
+      GAMES_DATA.forEach((game, idx) => {
+        const state = studentState[idx];
+        const isActive = (currentScreen === idx);
+
+        let icon = `<i class="fa-solid fa-circle text-[8px] opacity-60"></i>`;
+        let badgeColor = "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800";
+
+        if (state.verified) {
+          if (state.status === 'correct') {
+            icon = `<i class="fa-solid fa-circle-check text-emerald-400"></i>`;
+            badgeColor = "bg-emerald-950/60 text-emerald-300 border-emerald-800/60 hover:bg-emerald-900/60";
+          } else {
+            icon = `<i class="fa-solid fa-circle-xmark text-rose-400"></i>`;
+            badgeColor = "bg-rose-950/60 text-rose-300 border-rose-800/60 hover:bg-rose-900/60";
+          }
+        }
+
+        if (isActive) {
+          badgeColor += " ring-2 ring-cyan-400 font-bold shadow-lg shadow-cyan-500/20";
+        }
+
+        html += `
+          <button onclick="goToGame(${idx})" class="px-2.5 py-1 rounded-xl text-xs flex items-center gap-1.5 border transition ${badgeColor}">
+            ${icon} <span>Ex ${game.id}</span>
+          </button>
+        `;
+
+        htmlMob += `
+          <button onclick="goToGame(${idx})" class="px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 border transition ${badgeColor}">
+            ${icon} Jogo ${game.id}
+          </button>
+        `;
+      });
+
+      // Botão Resultado Final
+      const summaryActive = (currentScreen === 7);
+      const summaryColor = summaryActive 
+        ? "bg-cyan-500 text-slate-950 font-bold border-cyan-400 ring-2 ring-cyan-400 shadow-md shadow-cyan-500/30" 
+        : "bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700";
+
+      html += `
+        <button onclick="goToGame(7)" class="px-3 py-1 rounded-xl text-xs flex items-center gap-1.5 border transition ${summaryColor}">
+          <i class="fa-solid fa-trophy text-amber-400"></i> Resultado
+        </button>
+      `;
+
+      htmlMob += `
+        <button onclick="goToGame(7)" class="px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 border transition ${summaryColor}">
+          <i class="fa-solid fa-trophy text-amber-400"></i> Final
+        </button>
+      `;
+
+      headerBar.innerHTML = html;
+      headerBarMob.innerHTML = htmlMob;
+    }
+
+    // ==========================================
+    // HTML DA PÁGINA DE JOGO (LAYOUT EXPANDIDO)
+    // ==========================================
+    function renderGamePageHTML() {
+      const game = GAMES_DATA[currentScreen];
+
+      const splitColLeft = isExpandedGantt ? "hidden" : "lg:col-span-4";
+      const splitColRight = isExpandedGantt ? "lg:col-span-12" : "lg:col-span-8";
+
+      return `
+        <!-- Banner do Exercício + Barra de Ferramentas de Zoom e Ações -->
+        <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-4 shadow-xl mb-4">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            
+            <!-- Informações do Exercício -->
+            <div class="flex-1">
+              <div class="flex items-center flex-wrap gap-2 mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                  ${game.badge}
+                </span>
+                <span class="text-xs px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono border border-slate-700">
+                  ${game.category}
+                </span>
+                <span class="text-xs text-slate-400 flex items-center gap-1">
+                  <i class="fa-solid fa-calendar-days text-cyan-400"></i> Duração Máxima: ${game.maxDays} Dias
+                </span>
+              </div>
+              <h2 class="text-lg sm:text-xl font-extrabold text-white tracking-tight">${game.title}</h2>
+              <p class="text-xs sm:text-sm text-slate-300 mt-1">${game.description}</p>
+            </div>
+
+            <!-- Toolbar de Controle do Gantt (Zoom, Layout & Verificar) -->
+            <div class="flex items-center flex-wrap gap-2">
+              
+              <!-- Controles de Zoom -->
+              <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button onclick="zoomOut()" title="Diminuir Zoom" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition">
+                  <i class="fa-solid fa-magnifying-glass-minus"></i>
+                </button>
+                <button onclick="fitZoom()" title="Ajustar à Tela" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-mono font-semibold transition">
+                  Ajustar
+                </button>
+                <button onclick="zoomIn()" title="Aumentar Zoom" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition">
+                  <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </button>
+              </div>
+
+              <!-- Alternar Visualização Expandida -->
+              <button onclick="toggleExpandLayout()" class="px-3 py-1.5 rounded-xl ${isExpandedGantt ? 'bg-cyan-950 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 text-slate-300 border-slate-700'} border hover:bg-slate-700 text-xs font-semibold transition flex items-center gap-1.5">
+                <i class="fa-solid ${isExpandedGantt ? 'fa-compress' : 'fa-expand'}"></i>
+                <span>${isExpandedGantt ? 'Modo Normal' : 'Expandir Gantt'}</span>
+              </button>
+
+              <!-- Reiniciar -->
+              <button onclick="resetCurrentGame()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-left"></i>
+              </button>
+
+              <!-- Verificar Cronograma -->
+              <button onclick="verifyGantt()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center gap-2">
+                <i class="fa-solid fa-circle-check text-sm"></i> Verificar Cronograma
+              </button>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- Grid Principal da Página (Split Responsivo) -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+          
+          <!-- Tabela de Requisitos e Precedências (4 cols) -->
+          <div class="${splitColLeft} flex flex-col gap-4">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl flex-1 flex flex-col">
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <i class="fa-solid fa-list-check text-cyan-400"></i> Tabela de Requisitos
+                </h3>
+                <span class="text-[11px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md font-mono border border-slate-700">
+                  ${game.tasks.length} Tarefas
+                </span>
+              </div>
+
+              <!-- Tabela HTML -->
+              <div class="overflow-x-auto flex-1 max-h-[480px]">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                      <th class="p-2 text-center w-8">ID</th>
+                      <th class="p-2">Tarefa / Atividade</th>
+                      <th class="p-2 text-center">Dur.</th>
+                      <th class="p-2 text-center">Vínculo</th>
+                      <th class="p-2 text-center">Antecessoras</th>
+                    </tr>
+                  </thead>
+                  <tbody id="task-table-body" class="divide-y divide-slate-800/60">
+                    <!-- Gerado via JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Cartão de Ajuda de Vínculos -->
+              <div class="mt-4 pt-3 border-t border-slate-800 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                <div class="text-[11px] text-slate-300 font-semibold mb-1 flex items-center gap-1.5">
+                  <i class="fa-solid fa-lightbulb text-amber-400"></i> Dica de Sequenciamento:
+                </div>
+                <p class="text-[11px] text-slate-400 leading-normal">
+                  <strong class="text-emerald-400">TI:</strong> A tarefa só começa no dia seguinte ao término.<br/>
+                  <strong class="text-purple-400">II:</strong> A tarefa começa no mesmo dia da antecessora.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- GRÁFICO DE GANTT AMPLIADO E INTERATIVO (8 ou 12 cols) -->
+          <div class="${splitColRight} flex flex-col">
+            <div class="bg-slate-900 rounded-2xl border border-slate-800 p-4 shadow-xl flex-1 flex flex-col relative overflow-hidden">
+              
+              <!-- Cabeçalho Superior do Gantt -->
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column text-cyan-400"></i> Gráfico de Gantt do Projeto
+                  </h3>
+                  <span class="text-[10px] text-cyan-400 bg-cyan-950/80 border border-cyan-800/60 px-2.5 py-0.5 rounded-full font-semibold">
+                    Coluna Ampliada (340px)
+                  </span>
+                </div>
+                
+                <div class="text-xs text-slate-400 flex items-center gap-2">
+                  <span class="hidden sm:inline">Interações:</span>
+                  <span class="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium">Arraste</span>
+                  <span class="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium">Setas ◀ ▶</span>
+                  <span class="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-300 font-medium">Clique no Dia</span>
+                </div>
+              </div>
+
+              <!-- Container Scrollável do Gantt Maior -->
+              <div class="flex-1 overflow-x-auto relative rounded-xl border border-slate-800/80 bg-slate-950 p-2 min-h-[420px]" id="gantt-scroll-container">
+                <div id="gantt-wrapper" class="relative no-select">
+                  
+                  <!-- Header do Cronograma de Dias -->
+                  <div id="gantt-timeline-header" class="flex border-b border-slate-800 pb-2 mb-2">
+                    <!-- Gerado via JS -->
+                  </div>
+
+                  <!-- Camada SVG de Conectores de Dependência -->
+                  <svg id="gantt-svg" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+                    <!-- Gerado via JS -->
+                  </svg>
+
+                  <!-- Linhas de Tarefas -->
+                  <div id="gantt-rows" class="space-y-2 relative z-20">
+                    <!-- Gerado via JS -->
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Legenda do Gantt -->
+              <div class="mt-3 flex flex-wrap items-center justify-between text-[11px] text-slate-400 px-1 gap-2 border-t border-slate-800/80 pt-2.5">
+                <div class="flex items-center gap-4">
+                  <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-cyan-500 inline-block border border-cyan-300 shadow-sm shadow-cyan-500/50"></span> Padrão</span>
+                  <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-emerald-500 inline-block border border-emerald-300 shadow-sm shadow-emerald-500/50"></span> Posição Correta</span>
+                  <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded bg-rose-500 inline-block border border-rose-300 shadow-sm shadow-rose-500/50"></span> Erro de Vínculo</span>
+                  <span class="flex items-center gap-1.5"><span class="w-3 h-3 rotate-45 bg-amber-400 inline-block border border-amber-200"></span> Marco (0d)</span>
+                </div>
+                <div class="font-mono text-[10px] text-slate-400">
+                  Largura Célula: <span class="text-cyan-400 font-bold">${cellWidth}px</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </main>
+      `;
+    }
+
+    // ==========================================
+    // RENDERIZAÇÃO DA TABELA E GANTT AMPLIADO
+    // ==========================================
+    function renderTable() {
+      const game = GAMES_DATA[currentScreen];
+      const tbody = document.getElementById('task-table-body');
+      if (!tbody) return;
+
+      tbody.innerHTML = '';
+
+      game.tasks.forEach(task => {
+        const tr = document.createElement('tr');
+        tr.id = `table-row-${task.id}`;
+        tr.className = "hover:bg-slate-800/40 transition cursor-pointer text-slate-300";
+        tr.onclick = () => highlightTaskRow(task.id);
+
+        const typeBadge = task.type === 'TI'
+          ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] border border-emerald-500/20 font-bold">TI</span>'
+          : '<span class="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 font-mono text-[10px] border border-purple-500/20 font-bold">II</span>';
+
+        const durationText = task.duration === 0
+          ? '<span class="text-amber-400 font-bold flex items-center justify-center gap-1"><i class="fa-solid fa-gem text-[10px]"></i> 0d</span>'
+          : `${task.duration}d`;
+
+        const predecessorsText = task.pre.length > 0 ? task.pre.join(', ') : '—';
+
+        tr.innerHTML = `
+          <td class="p-2 text-center font-bold text-slate-400 font-mono">${task.id}</td>
+          <td class="p-2 font-medium text-slate-200 text-xs">${task.name}</td>
+          <td class="p-2 text-center whitespace-nowrap font-mono">${durationText}</td>
+          <td class="p-2 text-center">${typeBadge}</td>
+          <td class="p-2 text-center font-mono font-bold text-cyan-400">${predecessorsText}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderGantt() {
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      const maxDays = game.maxDays;
+
+      const ganttWrapper = document.getElementById('gantt-wrapper');
+      if (!ganttWrapper) return;
+
+      const totalWidth = LABEL_WIDTH + (maxDays * cellWidth);
+      ganttWrapper.style.width = `${totalWidth}px`;
+
+      // Header Timeline
+      const headerContainer = document.getElementById('gantt-timeline-header');
+      if (headerContainer) {
+        let headerHTML = `<div style="width: ${LABEL_WIDTH}px;" class="shrink-0 text-xs font-bold text-slate-400 uppercase tracking-wider pl-3 flex items-center">Atividades do Projeto</div>`;
+        headerHTML += `<div class="flex-1 flex gantt-grid-bg">`;
+        for (let day = 1; day <= maxDays; day++) {
+          headerHTML += `
+            <div style="width: ${cellWidth}px;" class="shrink-0 text-center text-[11px] font-mono font-semibold text-slate-400 border-r border-slate-800/60">
+              D${day}
+            </div>
+          `;
+        }
+        headerHTML += `</div>`;
+        headerContainer.innerHTML = headerHTML;
+      }
+
+      // Rows Container
+      const rowsContainer = document.getElementById('gantt-rows');
+      if (!rowsContainer) return;
+      rowsContainer.innerHTML = '';
+
+      game.tasks.forEach(task => {
+        const row = document.createElement('div');
+        row.className = "flex items-center h-12 relative group";
+        row.id = `gantt-row-${task.id}`;
+
+        const currentStart = state.userStarts[task.id] || 1;
+        const taskStatus = state.taskStatuses[task.id] || 'neutral';
+
+        // Coluna Rótulo Ampliada (340px)
+        let labelHTML = `
+          <div style="width: ${LABEL_WIDTH}px;" class="shrink-0 pr-3 flex items-center justify-between z-20">
+            <div class="truncate text-xs sm:text-sm font-semibold text-slate-200 flex items-center gap-2" title="${task.name}">
+              <span class="w-5 h-5 rounded-md bg-slate-800 text-cyan-400 text-xs flex items-center justify-center font-bold font-mono border border-slate-700 shrink-0">${task.id}</span>
+              <span class="truncate">${task.name}</span>
+            </div>
+            <div class="flex items-center gap-1 shrink-0 ml-1">
+              <button onclick="shiftTaskDay(${task.id}, -1)" title="Recuar 1 dia" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white flex items-center justify-center text-xs transition border border-slate-700">
+                <i class="fa-solid fa-chevron-left text-[10px]"></i>
+              </button>
+              <button onclick="shiftTaskDay(${task.id}, 1)" title="Avançar 1 dia" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white flex items-center justify-center text-xs transition border border-slate-700">
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+              </button>
+            </div>
+          </div>
+        `;
+
+        // Track dos Dias
+        let trackHTML = `<div class="flex-1 flex h-full items-center relative gantt-grid-bg">`;
+
+        for (let day = 1; day <= maxDays; day++) {
+          trackHTML += `
+            <div onclick="clickCellToPlace(${task.id}, ${day})" 
+                 style="width: ${cellWidth}px;"
+                 class="h-full shrink-0 border-r border-slate-800/40 hover:bg-slate-800/40 transition cursor-pointer">
+            </div>
+          `;
+        }
+
+        // Estilização das Barras
+        let barColorClass = "bg-gradient-to-r from-cyan-600 to-blue-600 border-cyan-300 text-white gantt-bar-glow";
+        if (taskStatus === 'correct') {
+          barColorClass = "bg-gradient-to-r from-emerald-600 to-teal-600 border-emerald-300 text-white shadow-emerald-500/20";
+        } else if (taskStatus === 'error') {
+          barColorClass = "bg-gradient-to-r from-rose-600 to-red-600 border-rose-300 text-white shadow-rose-500/20";
+        }
+
+        const leftPos = (currentStart - 1) * cellWidth;
+
+        if (task.duration === 0) {
+          // MARCO (Milestone - 0 Dias)
+          const diamondOffset = leftPos + (cellWidth / 2) - 12;
+          trackHTML += `
+            <div id="gantt-bar-${task.id}"
+                 onmousedown="startDrag(event, ${task.id})"
+                 ontouchstart="startDrag(event, ${task.id})"
+                 style="left: ${diamondOffset}px;"
+                 class="absolute z-20 cursor-grab active:cursor-grabbing transform rotate-45 w-6 h-6 bg-gradient-to-tr from-amber-500 to-yellow-300 border-2 border-white shadow-lg flex items-center justify-center transition-transform hover:scale-125"
+                 title="Marco: Dia ${currentStart} (0 Dias)">
+            </div>
+          `;
+        } else {
+          // BARRA DE DURAÇÃO NORMAL
+          const barWidth = (task.duration * cellWidth) - 4;
+          const endDay = currentStart + task.duration - 1;
+
+          trackHTML += `
+            <div id="gantt-bar-${task.id}"
+                 onmousedown="startDrag(event, ${task.id})"
+                 ontouchstart="startDrag(event, ${task.id})"
+                 style="left: ${leftPos + 2}px; width: ${barWidth}px;"
+                 class="absolute z-20 h-8 rounded-xl ${barColorClass} border-2 shadow-lg flex items-center justify-between px-2.5 cursor-grab active:cursor-grabbing text-xs font-bold no-select transition-all hover:brightness-110">
+              <span class="truncate flex items-center gap-1.5">
+                <i class="fa-solid fa-grip-vertical opacity-60 text-[11px]"></i>
+                Dia ${currentStart} - ${endDay}
+              </span>
+              <span class="font-mono text-[11px] bg-slate-950/40 px-1.5 py-0.5 rounded text-cyan-200 shrink-0 ml-1">
+                ${task.duration}d
+              </span>
+            </div>
+          `;
+        }
+
+        trackHTML += `</div>`;
+        row.innerHTML = labelHTML + trackHTML;
+        rowsContainer.appendChild(row);
+      });
+    }
+
+    // ==========================================
+    // LÓGICA DE INTERAÇÃO (DRAG, CLICK, ARROWS)
+    // ==========================================
+    function startDrag(e, taskId) {
+      e.preventDefault();
+      isDragging = true;
+      dragTaskId = taskId;
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      dragStartX = clientX;
+      
+      const state = studentState[currentScreen];
+      dragStartDay = state.userStarts[taskId];
+
+      document.body.classList.add('no-select');
+      highlightTaskRow(taskId);
+    }
+
+    function handleDragMove(e) {
+      if (!isDragging || !dragTaskId || currentScreen >= 7) return;
+      if (e.touches) e.preventDefault();
+
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const deltaX = clientX - dragStartX;
+      const dayDelta = Math.round(deltaX / cellWidth);
+
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      const task = game.tasks.find(t => t.id === dragTaskId);
+
+      const maxStart = game.maxDays - (task.duration > 0 ? task.duration - 1 : 0);
+      let newStart = dragStartDay + dayDelta;
+      newStart = Math.max(1, Math.min(maxStart, newStart));
+
+      if (state.userStarts[dragTaskId] !== newStart) {
+        state.userStarts[dragTaskId] = newStart;
+        state.taskStatuses[dragTaskId] = 'neutral';
+        updateBarPositionDOM(task, newStart);
+        drawDependencyLines();
+        playSound('snap');
+      }
+    }
+
+    function handleDragEnd() {
+      if (isDragging) {
+        isDragging = false;
+        dragTaskId = null;
+        document.body.classList.remove('no-select');
+      }
+    }
+
+    function clickCellToPlace(taskId, day) {
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      const task = game.tasks.find(t => t.id === taskId);
+      const maxStart = game.maxDays - (task.duration > 0 ? task.duration - 1 : 0);
+      
+      const targetDay = Math.max(1, Math.min(maxStart, day));
+      if (state.userStarts[taskId] !== targetDay) {
+        state.userStarts[taskId] = targetDay;
+        state.taskStatuses[taskId] = 'neutral';
+        updateBarPositionDOM(task, targetDay);
+        drawDependencyLines();
+        playSound('snap');
+        highlightTaskRow(taskId);
+      }
+    }
+
+    function shiftTaskDay(taskId, delta) {
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      const task = game.tasks.find(t => t.id === taskId);
+      const maxStart = game.maxDays - (task.duration > 0 ? task.duration - 1 : 0);
+      let newStart = state.userStarts[taskId] + delta;
+      newStart = Math.max(1, Math.min(maxStart, newStart));
+
+      if (state.userStarts[taskId] !== newStart) {
+        state.userStarts[taskId] = newStart;
+        state.taskStatuses[taskId] = 'neutral';
+        updateBarPositionDOM(task, newStart);
+        drawDependencyLines();
+        playSound('snap');
+        highlightTaskRow(taskId);
+      }
+    }
+
+    function updateBarPositionDOM(task, currentStart) {
+      const barElem = document.getElementById(`gantt-bar-${task.id}`);
+      if (!barElem) return;
+
+      const leftPos = (currentStart - 1) * cellWidth;
+
+      if (task.duration === 0) {
+        const diamondOffset = leftPos + (cellWidth / 2) - 12;
+        barElem.style.left = `${diamondOffset}px`;
+        barElem.title = `Marco: Dia ${currentStart} (0 Dias)`;
+      } else {
+        barElem.style.left = `${leftPos + 2}px`;
+        const endDay = currentStart + task.duration - 1;
+        const textSpan = barElem.querySelector('span');
+        if (textSpan) {
+          textSpan.innerHTML = `<i class="fa-solid fa-grip-vertical opacity-60 text-[11px]"></i> Dia ${currentStart} - ${endDay}`;
+        }
+      }
+    }
+
+    function highlightTaskRow(taskId) {
+      const game = GAMES_DATA[currentScreen];
+      game.tasks.forEach(t => {
+        const tr = document.getElementById(`table-row-${t.id}`);
+        if (tr) {
+          if (t.id === taskId) {
+            tr.className = "bg-cyan-950/70 border-l-4 border-cyan-400 text-white font-semibold";
+          } else {
+            tr.className = "hover:bg-slate-800/40 transition cursor-pointer text-slate-300";
+          }
+        }
+      });
+    }
+
+    function resetCurrentGame() {
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      
+      state.verified = false;
+      state.status = 'pending';
+      state.taskStatuses = {};
+      game.tasks.forEach((t, idx) => {
+        if (idx === 0) state.userStarts[t.id] = 1;
+        else state.userStarts[t.id] = Math.min(game.maxDays - (t.duration > 0 ? t.duration - 1 : 0), 1 + (idx * 2));
+      });
+
+      renderScreen();
+      playSound('click');
+    }
+
+    // ==========================================
+    // DESENHO DE LINHAS SVG (RECALCULADO PARA AMPLO)
+    // ==========================================
+    function drawDependencyLines() {
+      const svg = document.getElementById('gantt-svg');
+      if (!svg || currentScreen >= 7) return;
+
+      svg.innerHTML = `
+        <defs>
+          <marker id="arrow-valid" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#10b981"/>
+          </marker>
+          <marker id="arrow-invalid" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#ef4444"/>
+          </marker>
+          <marker id="arrow-neutral" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+          </marker>
+        </defs>
+      `;
+
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+
+      game.tasks.forEach((task, idx) => {
+        if (!task.pre || task.pre.length === 0) return;
+
+        task.pre.forEach(preId => {
+          const preTask = game.tasks.find(t => t.id === preId);
+          if (!preTask) return;
+
+          const preIdx = game.tasks.findIndex(t => t.id === preId);
+          const preStart = state.userStarts[preId];
+          const taskStart = state.userStarts[task.id];
+
+          let x1, y1, x2, y2;
+          const isTI = (task.type === 'TI');
+
+          if (isTI) {
+            const preEndDay = preStart + (preTask.duration > 0 ? preTask.duration - 1 : 0);
+            x1 = LABEL_WIDTH + (preEndDay * cellWidth);
+            y1 = HEADER_HEIGHT + (preIdx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
+
+            x2 = LABEL_WIDTH + ((taskStart - 1) * cellWidth);
+            y2 = HEADER_HEIGHT + (idx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
+          } else {
+            // II (Início-Início)
+            x1 = LABEL_WIDTH + ((preStart - 1) * cellWidth);
+            y1 = HEADER_HEIGHT + (preIdx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
+
+            x2 = LABEL_WIDTH + ((taskStart - 1) * cellWidth);
+            y2 = HEADER_HEIGHT + (idx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
+          }
+
+          let isValid = false;
+          if (isTI) {
+            const preFinish = preStart + (preTask.duration > 0 ? preTask.duration - 1 : 0);
+            isValid = (taskStart > preFinish);
+          } else {
+            isValid = (taskStart >= preStart);
+          }
+
+          let strokeColor = "#38bdf8";
+          let markerId = "arrow-neutral";
+
+          if (state.verified) {
+            if (isValid && state.taskStatuses[task.id] === 'correct') {
+              strokeColor = "#10b981";
+              markerId = "arrow-valid";
+            } else if (!isValid || state.taskStatuses[task.id] === 'error') {
+              strokeColor = "#ef4444";
+              markerId = "arrow-invalid";
+            }
+          }
+
+          const dx = x2 - x1;
+          let pathData = '';
+
+          if (dx >= 18) {
+            const controlOffset = Math.max(22, dx * 0.45);
+            pathData = `M ${x1} ${y1} C ${x1 + controlOffset} ${y1}, ${x2 - controlOffset} ${y2}, ${x2} ${y2}`;
+          } else {
+            const loopX = Math.max(x1, x2) + 28;
+            pathData = `M ${x1} ${y1} C ${loopX} ${y1}, ${loopX} ${y2}, ${x2} ${y2}`;
+          }
+
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', pathData);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', strokeColor);
+          path.setAttribute('stroke-width', '2.5');
+          if (!isValid) {
+            path.setAttribute('stroke-dasharray', '5 4');
+          }
+          path.setAttribute('marker-end', `url(#${markerId})`);
+          svg.appendChild(path);
+        });
+      });
+    }
+
+    // ==========================================
+    // VERIFICAÇÃO PEDAGÓGICA (SEM SPOILERS)
+    // ==========================================
+    function verifyGantt() {
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+      
+      state.verified = true;
+      state.attempts++;
+
+      let isEntireGameCorrect = true;
+      const feedbackItems = [];
+
+      game.tasks.forEach(task => {
+        const userStart = state.userStarts[task.id];
+        let taskHasViolation = false;
+        let pedagogicalAdvice = "";
+
+        // 1. Checagem de Precedências
+        if (task.pre && task.pre.length > 0) {
+          task.pre.forEach(preId => {
+            const preTask = game.tasks.find(t => t.id === preId);
+            const preStart = state.userStarts[preId];
+
+            if (task.type === 'TI') {
+              const preFinish = preStart + (preTask.duration > 0 ? preTask.duration - 1 : 0);
+              if (userStart <= preFinish) {
+                taskHasViolation = true;
+                pedagogicalAdvice = `Violação Término-Início (TI): A Tarefa ${task.id} foi iniciada antes do término completo da antecessora (Tarefa ${preId}: "${preTask.name}").`;
+              }
+            } else if (task.type === 'II') {
+              if (userStart < preStart) {
+                taskHasViolation = true;
+                pedagogicalAdvice = `Violação Início-Início (II): A Tarefa ${task.id} não pode iniciar antes que a Tarefa ${preId} ("${preTask.name}") seja iniciada.`;
+              }
+            }
+          });
+        } else {
+          // Sem antecessoras deve começar no Dia 1
+          if (userStart !== 1) {
+            taskHasViolation = true;
+            pedagogicalAdvice = `Início do Projeto: Como não possui antecessoras, esta tarefa deve ser alocada logo no primeiro dia (Dia 1).`;
+          }
+        }
+
+        // 2. Checagem de Otimização (Atraso Desnecessário)
+        if (!taskHasViolation && userStart > task.correctStart) {
+          taskHasViolation = true;
+          pedagogicalAdvice = `Atraso no Cronograma: As dependências foram respeitadas, mas a atividade está alocada mais tarde do que o necessário. Avance-a para otimizar a duração total do projeto.`;
+        }
+
+        if (userStart === task.correctStart) {
+          state.taskStatuses[task.id] = 'correct';
+          feedbackItems.push({
+            id: task.id,
+            name: task.name,
+            type: 'success',
+            msg: `Perfeito! O posicionamento respeita rigorosamente as dependências e o tempo ideal.`
+          });
+        } else {
+          isEntireGameCorrect = false;
+          state.taskStatuses[task.id] = 'error';
+          feedbackItems.push({
+            id: task.id,
+            name: task.name,
+            type: 'error',
+            msg: pedagogicalAdvice
+          });
+        }
+      });
+
+      if (isEntireGameCorrect) {
+        state.status = 'correct';
+        playSound('success');
+      } else {
+        state.status = 'incorrect';
+        playSound('error');
+      }
+
+      renderGantt();
+      drawDependencyLines();
+      updateFooterStatus();
+      renderHeaderProgress();
+      openModal(isEntireGameCorrect, feedbackItems);
+    }
+
+    function updateFooterStatus() {
+      const footerGameNumber = document.getElementById('footer-game-number');
+      const footerGameTitle = document.getElementById('footer-game-title');
+      const footerStatusBadge = document.getElementById('footer-status-badge');
+      const footerPrevBtn = document.getElementById('footer-prev-btn');
+      const footerNextBtn = document.getElementById('footer-next-btn');
+
+      if (!footerGameNumber) return;
+
+      const game = GAMES_DATA[currentScreen];
+      const state = studentState[currentScreen];
+
+      footerGameNumber.innerText = `Exercício ${game.id} de 7`;
+      footerGameTitle.innerText = game.title;
+
+      if (!state.verified) {
+        footerStatusBadge.className = "px-4 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30";
+        footerStatusBadge.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Status: Pendente / Precisa Ajustar`;
+      } else if (state.status === 'correct') {
+        footerStatusBadge.className = "px-4 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm shadow-emerald-500/20";
+        footerStatusBadge.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> Status: Correto ✓`;
+      } else {
+        footerStatusBadge.className = "px-4 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm shadow-rose-500/20";
+        footerStatusBadge.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-400"></i> Status: Precisa Ajustar ✗`;
+      }
+
+      footerPrevBtn.disabled = (currentScreen === 0);
+      if (currentScreen === 6) {
+        footerNextBtn.innerHTML = `<span class="hidden sm:inline">Ver Resultado Final</span> <i class="fa-solid fa-trophy text-amber-400"></i>`;
+      } else {
+        footerNextBtn.innerHTML = `<span class="hidden sm:inline">Próximo Jogo</span> <i class="fa-solid fa-chevron-right"></i>`;
+      }
+    }
+
+    // ==========================================
+    // MODAIS E FEEDBACK
+    // ==========================================
+    function openModal(isVictory, feedbackItems) {
+      const modal = document.getElementById('feedback-modal');
+      const iconContainer = document.getElementById('modal-header-icon');
+      const title = document.getElementById('modal-title');
+      const subtitle = document.getElementById('modal-subtitle');
+      const listContainer = document.getElementById('feedback-list');
+      const nextBtn = document.getElementById('modal-next-btn');
+
+      listContainer.innerHTML = '';
+
+      if (isVictory) {
+        iconContainer.className = "w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl mb-4 border border-emerald-500/30 shadow-lg shadow-emerald-500/20";
+        iconContainer.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+        title.innerText = "🎉 Excelente! Cronograma Perfeito!";
+        subtitle.innerText = "Todas as dependências e prazos foram configurados de forma otimizada!";
+        
+        if (currentScreen < 6) {
+          nextBtn.classList.remove('hidden');
+          nextBtn.innerText = "Avançar para Próximo Jogo";
+        } else {
+          nextBtn.classList.remove('hidden');
+          nextBtn.innerText = "Ver Resultado Final";
+        }
+      } else {
+        iconContainer.className = "w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl mb-4 border border-rose-500/30 shadow-lg shadow-rose-500/20";
+        iconContainer.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+        title.innerText = "Ajustes Necessários no Cronograma";
+        subtitle.innerText = "Sem spoilers diretos! Analise as orientações abaixo para corrigir:";
+        nextBtn.classList.add('hidden');
+      }
+
+      feedbackItems.forEach(item => {
+        const card = document.createElement('div');
+        let cardBg = "bg-slate-950 border-slate-800";
+        let icon = `<i class="fa-solid fa-check text-emerald-400"></i>`;
+
+        if (item.type === 'error') {
+          cardBg = "bg-rose-950/30 border-rose-800/50";
+          icon = `<i class="fa-solid fa-xmark text-rose-400"></i>`;
+        }
+
+        card.className = `p-3 rounded-2xl border ${cardBg} flex items-start gap-3 text-xs`;
+        card.innerHTML = `
+          <div class="mt-0.5 text-base shrink-0">${icon}</div>
+          <div>
+            <div class="font-bold text-slate-200">Tarefa ${item.id}: ${item.name}</div>
+            <div class="text-slate-400 mt-1 leading-relaxed">${item.msg}</div>
+          </div>
+        `;
+        listContainer.appendChild(card);
+      });
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('feedback-modal').classList.add('hidden');
+    }
+
+    function nextGameFromModal() {
+      closeModal();
+      nextGame();
+    }
+
+    function openHelpModal() {
+      document.getElementById('help-modal').classList.remove('hidden');
+    }
+
+    function closeHelpModal() {
+      document.getElementById('help-modal').classList.add('hidden');
+    }
+
+    // ==========================================
+    // DASHBOARD DE RESULTADO FINAL
+    // ==========================================
+    function renderFinalSummaryHTML() {
+      let correctCount = 0;
+      studentState.forEach(state => {
+        if (state.verified && state.status === 'correct') correctCount++;
+      });
+
+      const percentage = Math.round((correctCount / 7) * 100);
+
+      let mainBadge = "";
+      let titleText = "";
+      let descText = "";
+      let cardBorder = "";
+
+      if (percentage === 100) {
+        mainBadge = "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/20";
+        titleText = "Sensacional! Desempenho Perfeito!";
+        descText = "Você dominou 100% dos 7 desafios de cronograma. Demonstrou proficiência completa em Caminho Crítico, vínculos TI/II e otimização do tempo.";
+        cardBorder = "border-emerald-500/50 shadow-emerald-500/10";
+      } else if (percentage >= 80) {
+        mainBadge = "bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-amber-500/20";
+        titleText = "Ótimo Trabalho! Quase Lá!";
+        descText = `Você concluiu ${correctCount} de 7 jogos com sucesso (${percentage}%). Ajuste os exercícios pendentes para atingir a pontuação máxima!`;
+        cardBorder = "border-amber-500/50 shadow-amber-500/10";
+      } else {
+        mainBadge = "bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-rose-500/20";
+        titleText = "Continue Praticando!";
+        descText = `Sua pontuação final foi de ${percentage}% (${correctCount} de 7 jogos). Revise as regras de precedência e reflita sobre o início mais cedo possível das tarefas.`;
+        cardBorder = "border-rose-500/50 shadow-rose-500/10";
+      }
+
+      let html = `
+        <main class="flex-1 p-4 sm:p-8 max-w-5xl mx-auto w-full flex flex-col gap-6">
+          
+          <!-- Banner de Destaque -->
+          <div class="bg-slate-900 rounded-3xl border ${cardBorder} p-6 sm:p-10 shadow-2xl text-center relative overflow-hidden">
+            
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider ${mainBadge} mb-4">
+              <i class="fa-solid fa-chart-pie"></i> Aproveitamento do Laboratório: ${percentage}%
+            </div>
+
+            <h2 class="text-3xl sm:text-5xl font-extrabold text-white mb-3 tracking-tight">${titleText}</h2>
+            <p class="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed mb-8">${descText}</p>
+
+            <!-- Placar dos 7 Exercícios -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto mb-8">
+              <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">Exercícios Totais</span>
+                <span class="text-2xl font-bold text-white">7 Jogos</span>
+              </div>
+              <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">Precisão Geral</span>
+                <span class="text-2xl font-bold text-cyan-400">${percentage}%</span>
+              </div>
+              <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">Cronogramas OK</span>
+                <span class="text-2xl font-bold text-emerald-400">${correctCount}</span>
+              </div>
+              <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                <span class="text-xs text-slate-400 block mb-1">Pendentes</span>
+                <span class="text-2xl font-bold text-rose-400">${7 - correctCount}</span>
+              </div>
+            </div>
+
+            <!-- Botões de Ação -->
+            <div class="flex items-center justify-center flex-wrap gap-3">
+              <button onclick="resetAllGames()" class="px-6 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> Reiniciar Todos os Jogos
+              </button>
+              ${percentage < 100 ? `
+                <button onclick="goToFirstFailedGame()" class="px-6 py-3 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition flex items-center gap-2 shadow-lg shadow-cyan-500/20">
+                  <i class="fa-solid fa-wrench"></i> Corrigir Exercícios Pendentes
+                </button>
+              ` : ''}
+            </div>
+
+          </div>
+
+          <!-- Relatório Detalhado -->
+          <div class="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-xl">
+            <h3 class="text-base font-bold text-slate-200 mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-cyan-400"></i> Desempenho Individual nos 7 Cronogramas
+            </h3>
+
+            <div class="space-y-3">
+      `;
+
+      GAMES_DATA.forEach((game, idx) => {
+        const state = studentState[idx];
+        let statusBadge = "";
+        let btnAction = "";
+
+        if (state.verified && state.status === 'correct') {
+          statusBadge = `<span class="px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-check"></i> Correto</span>`;
+          btnAction = `<button onclick="goToGame(${idx})" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700">Rever Cronograma</button>`;
+        } else {
+          statusBadge = `<span class="px-3.5 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-xmark"></i> Precisa Ajustar</span>`;
+          btnAction = `<button onclick="goToGame(${idx})" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md shadow-cyan-500/20">Refazer este Jogo</button>`;
+        }
+
+        html += `
+          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-3.5">
+              <span class="w-8 h-8 rounded-xl bg-slate-800 text-cyan-400 text-xs font-mono font-bold flex items-center justify-center border border-slate-700 shrink-0">
+                ${game.id}
+              </span>
+              <div>
+                <h4 class="text-sm font-bold text-white">${game.title}</h4>
+                <p class="text-xs text-slate-400 mt-0.5">${game.category} • ${game.tasks.length} atividades • Max: ${game.maxDays} dias</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-3 justify-between sm:justify-end">
+              ${statusBadge}
+              ${btnAction}
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+            </div>
+          </div>
+
+        </main>
+      `;
+
+      return html;
+    }
+
+    function evaluateFinalConfetti() {
+      let correctCount = 0;
+      studentState.forEach(state => {
+        if (state.verified && state.status === 'correct') correctCount++;
+      });
+
+      if (correctCount === 7) {
+        playSound('success');
+        launchConfetti();
+      }
+    }
+
+    function goToFirstFailedGame() {
+      const failedIdx = studentState.findIndex(state => !(state.verified && state.status === 'correct'));
+      if (failedIdx !== -1) goToGame(failedIdx);
+      else goToGame(0);
+    }
+
+    function resetAllGames() {
+      studentState.forEach(state => {
+        state.verified = false;
+        state.status = 'pending';
+        state.attempts = 0;
+        state.taskStatuses = {};
+      });
+
+      GAMES_DATA.forEach((game, gIdx) => {
+        game.tasks.forEach((t, idx) => {
+          if (idx === 0) studentState[gIdx].userStarts[t.id] = 1;
+          else studentState[gIdx].userStarts[t.id] = Math.min(game.maxDays - (t.duration > 0 ? t.duration - 1 : 0), 1 + (idx * 2));
+        });
+      });
+
+      goToGame(0);
+    }
+
+    // ==========================================
+    // AUDIO SINTETIZADO (WEB AUDIO API)
+    // ==========================================
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById('sound-btn');
+      btn.innerHTML = soundEnabled 
+        ? `<i class="fa-solid fa-volume-high text-sm"></i>` 
+        : `<i class="fa-solid fa-volume-xmark text-sm text-slate-500"></i>`;
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+
+        if (type === 'snap') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(340, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + 0.04);
+          gain.gain.setValueAtTime(0.08, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.04);
+        } else if (type === 'click') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(520, ctx.currentTime);
+          gain.gain.setValueAtTime(0.05, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.03);
+        } else if (type === 'success') {
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime + idx * 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.2);
+            osc.start(ctx.currentTime + idx * 0.08);
+            osc.stop(ctx.currentTime + idx * 0.08 + 0.2);
+          });
+        } else if (type === 'error') {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(190, ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(120, ctx.currentTime + 0.18);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.18);
+        }
+      } catch(e) {}
+    }
+
+    // ==========================================
+    // ANIMAÇÃO DE CONFETES E BALÕES
+    // ==========================================
+    function launchConfetti() {
+      const canvas = document.getElementById('confetti-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6'];
+
+      for (let i = 0; i < 150; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height - canvas.height,
+          vx: (Math.random() - 0.5) * 6,
+          vy: Math.random() * 5 + 3,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 10 + 5,
+          isBalloon: Math.random() > 0.7,
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 8
+        });
+      }
+
+      const startTime = Date.now();
+      function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rotation += p.rotSpeed;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          
+          if (p.isBalloon) {
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size * 1.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, p.size * 1.3);
+            ctx.lineTo(0, p.size * 2);
+            ctx.stroke();
+          } else {
+            ctx.rotate((p.rotation * Math.PI) / 180);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          }
+          
+          ctx.restore();
+        });
+
+        if (Date.now() - startTime < 4500) {
+          requestAnimationFrame(render);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      render();
+    }
+  </script>
+</body>
+</html>
